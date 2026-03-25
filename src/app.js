@@ -1,34 +1,73 @@
 const express = require("express");
-
+const { connectDB } = require("./config/database");
 const app = express();
+const User = require("./models/user");
 
-const {adminAuth, userAuth} = require("./middlewares/auth");
+app.use(express.json());
 
-app.use("/admin", adminAuth);
-
-app.use("/user/login", (req, res) => {
-  console.log("Should not go to authorize");
-  res.send("User profile data");
-});
-
-app.use("/user", userAuth);
-
-app.use("/admin/getUserData", (req, res) => {
-  res.send("User data fetched");
-});
-
-app.use("/user/profile", (req, res) => {
-  throw new Error("ssdasd");
-  res.send("User profile data");
-});
-
-app.use("/", (err, req, res, next) => {
-  if(err) {
-    console.log("here");
-    res.status(500).send("Something went wrong");
+//create a user
+app.post("/signup", async (req, res) => {
+  //creating a new instance of the user model
+  let user = new User(req.body);
+  try {
+    await user.save();
+    res.send("User added successfully");
+  } catch (err) {
+    res.status(400).send("Error while creating user", err.message);
   }
 });
 
-app.listen(3000, () => {
-  console.log("Server is listening on port: 3000");
+//find a user
+app.get("/user", async (req, res) => {
+  let userEmail = req.body.emailId;
+  try {
+    let user = await User.findOne({ emailId: userEmail });
+    if (user) {
+      res.send(user);
+    } else {
+      res.status(404).send("Data not found");
+    }
+  } catch (err) {
+    res.status(400).send("Something went wrong", err.message);
+  }
 });
+
+//get all users
+app.get("/feed", async (req, res) => {
+  try {
+    let users = await User.find({});
+    if (users.length) {
+      res.send(users);
+    } else {
+      res.status(404).send("Data not found");
+    }
+  } catch (err) {
+    res.status(400).send("Something went wrong", err.message);
+  }
+});
+
+//update user
+app.patch("/user/:id", async(req, res) => {
+  try {
+    let user = await User.findByIdAndUpdate(
+      req.params.id, 
+      { $set: req.body }, 
+      {new: true}
+    );
+    res.send({
+      data: user,
+      message: "User updated successfully"
+    })
+  } catch (err) {
+    res.status(400).send("Something went wrong")
+  }
+});
+
+connectDB()
+  .then(res => {
+    console.log("Database connection eastablished...")
+    app.listen(3000, () => {
+      console.log("Server is listening on port: 3000..");
+    });
+  })
+  .catch(err => console.log(err));
