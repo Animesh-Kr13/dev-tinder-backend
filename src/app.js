@@ -2,19 +2,47 @@ const express = require("express");
 const { connectDB } = require("./config/database");
 const app = express();
 const User = require("./models/user");
+const { validateSignUpData } = require("./utils/validate");
+const bcrypt = require("bcrypt");
 
 app.use(express.json());
 
 //create a user
 app.post("/signup", async (req, res) => {
   //creating a new instance of the user model
-  let user = new User(req.body);
   try {
+    validateSignUpData(req);
+    let {firstName, lastName, emailId, password} = req.body;
+    let passwordHash = await bcrypt.hash(password, 10);
+    let user = new User({
+      firstName,
+      lastName,
+      emailId,
+      password: passwordHash
+    });
     await user.save();
     res.send("User added successfully");
   } catch (err) {
-    console.log(err);
-    res.status(400).send("Error while creating user " + err.errmsg);
+    console.log(err.message);
+    res.status(400).send("Error while creating user " + err.message);
+  }
+});
+
+//login
+app.post("/login", async (req, res) => {
+  try {
+    let {emailId, password} = req.body;
+    let user = await User.findOne({ emailId: emailId });
+    if (!user) {
+      res.status(404).send("Invalid credentials");
+    }
+    let isCorrect = await bcrypt.compare(password, user?.password);
+    if(!isCorrect) {
+      res.status(404).send("Invalid credentials");
+    }
+    res.send("User authenicated");
+  } catch (err) {
+    res.status(400).send("Something went wrong", err.message);
   }
 });
 
@@ -48,11 +76,22 @@ app.get("/feed", async (req, res) => {
 });
 
 //update user
-app.patch("/user/:id", async(req, res) => {
+app.patch("/user/:id", async (req, res) => {
+  let userId = req.params?.id;
+  let data = req.body;
+
   try {
+    const ALLOWED_UPDATES = ["photoUrl", "age", "about", "gender", "skills"];
+
+    const isUpdateAllowed = Object.keys(data).every(key => ALLOWED_UPDATES.includes(key));
+
+    if(!isUpdateAllowed) {
+      throw new Error("Update not allowed");
+    }
+
     let user = await User.findByIdAndUpdate(
-      req.params.id, 
-      { $set: req.body }, 
+      userId,
+      { $set: req.body },
       {
         after: true,
         runValidators: true,
@@ -63,7 +102,8 @@ app.patch("/user/:id", async(req, res) => {
       message: "User updated successfully"
     })
   } catch (err) {
-    res.status(400).send("Update Failed: " + err.errors.properties?.message)
+    console.log(err.message)
+    res.status(400).send("Update Failed: " + err.message)
   }
 });
 

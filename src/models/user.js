@@ -1,5 +1,6 @@
 const mongoose = require("mongoose");
 const { Schema } = mongoose;
+const validator = require("validator");
 
 const userSchema = new Schema(
   {
@@ -17,10 +18,20 @@ const userSchema = new Schema(
       unique: true,
       lowercase: true,
       trim: true,
+      validate(value) {
+        if(!validator.isEmail(value)) {
+          throw new Error("Invalid email address: " + value);
+        }
+      }
     },
     password: {
       type: String,
-      required: true
+      required: true,
+      validate(value) {
+        if(!validator.isStrongPassword(value)) {
+          throw new Error("Enter a strong password: " + value);
+        }
+      }
     },
     age: {
       type: Number,
@@ -36,13 +47,23 @@ const userSchema = new Schema(
     },
     photoUrl: {
       type: String,
-      default: "https://p.kindpng.com/picc/s/24-248253_user-profile-default-image-png-clipart-png-download.png"
+      default: "https://p.kindpng.com/picc/s/24-248253_user-profile-default-image-png-clipart-png-download.png",
+      validate(value) {
+        if(!validator.isURL(value)) {
+          throw new Error("Invalid url: " + value);
+        }
+      }
     },
     about: {
       type: String
     },
     skills: {
-      type: [String]
+      type: [String],
+      validate(value){
+        if(value.length > 10) {
+          throw new Error("Skills cannot be more than 10");
+        }
+      }
     }
   },
   {
