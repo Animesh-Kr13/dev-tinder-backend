@@ -4,8 +4,11 @@ const app = express();
 const User = require("./models/user");
 const { validateSignUpData } = require("./utils/validate");
 const bcrypt = require("bcrypt");
+const cookieParser = require("cookie-parser");
+const jwt = require("jsonwebtoken");
 
 app.use(express.json());
+app.use(cookieParser());
 
 //create a user
 app.post("/signup", async (req, res) => {
@@ -40,11 +43,30 @@ app.post("/login", async (req, res) => {
     if(!isCorrect) {
       res.status(404).send("Invalid credentials");
     }
+    let token = await jwt.sign({_id: user._id}, "DevTinder@2025");
+    res.cookie("token", token);
     res.send("User authenicated");
   } catch (err) {
     res.status(400).send("Something went wrong", err.message);
   }
 });
+
+//profile
+app.get("/profile", async(req, res) => {
+  try {
+    let cookie = req.cookies
+    let {token} = cookie;
+    let info = await jwt.verify(token, "DevTinder@2025");
+    let user = await User.findOne({_id: info});
+    if(user) {
+      res.send(user)
+    } else {
+      throw new Error("User does not exist");
+    }
+  } catch (err) {
+    res.status(400).send("Something went wrong", err.message);
+  }
+})
 
 //find a user
 app.get("/user", async (req, res) => {
