@@ -6,6 +6,7 @@ const { validateSignUpData } = require("./utils/validate");
 const bcrypt = require("bcrypt");
 const cookieParser = require("cookie-parser");
 const jwt = require("jsonwebtoken");
+const { userAuth } = require("./middlewares/auth");
 
 app.use(express.json());
 app.use(cookieParser());
@@ -15,7 +16,7 @@ app.post("/signup", async (req, res) => {
   //creating a new instance of the user model
   try {
     validateSignUpData(req);
-    let {firstName, lastName, emailId, password} = req.body;
+    let { firstName, lastName, emailId, password } = req.body;
     let passwordHash = await bcrypt.hash(password, 10);
     let user = new User({
       firstName,
@@ -34,16 +35,16 @@ app.post("/signup", async (req, res) => {
 //login
 app.post("/login", async (req, res) => {
   try {
-    let {emailId, password} = req.body;
+    let { emailId, password } = req.body;
     let user = await User.findOne({ emailId: emailId });
     if (!user) {
       res.status(404).send("Invalid credentials");
     }
     let isCorrect = await bcrypt.compare(password, user?.password);
-    if(!isCorrect) {
+    if (!isCorrect) {
       res.status(404).send("Invalid credentials");
     }
-    let token = await jwt.sign({_id: user._id}, "DevTinder@2025");
+    let token = await jwt.sign({ _id: user._id }, "DevTinder@2025");
     res.cookie("token", token);
     res.send("User authenicated");
   } catch (err) {
@@ -52,17 +53,10 @@ app.post("/login", async (req, res) => {
 });
 
 //profile
-app.get("/profile", async(req, res) => {
+app.get("/profile", userAuth, async (req, res) => {
   try {
-    let cookie = req.cookies
-    let {token} = cookie;
-    let info = await jwt.verify(token, "DevTinder@2025");
-    let user = await User.findOne({_id: info});
-    if(user) {
-      res.send(user)
-    } else {
-      throw new Error("User does not exist");
-    }
+    const user = req.user;
+    res.send(user);
   } catch (err) {
     res.status(400).send("Something went wrong", err.message);
   }
@@ -107,7 +101,7 @@ app.patch("/user/:id", async (req, res) => {
 
     const isUpdateAllowed = Object.keys(data).every(key => ALLOWED_UPDATES.includes(key));
 
-    if(!isUpdateAllowed) {
+    if (!isUpdateAllowed) {
       throw new Error("Update not allowed");
     }
 
