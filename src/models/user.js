@@ -1,6 +1,8 @@
 const mongoose = require("mongoose");
 const { Schema } = mongoose;
 const validator = require("validator");
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcrypt");
 
 const userSchema = new Schema(
   {
@@ -19,7 +21,7 @@ const userSchema = new Schema(
       lowercase: true,
       trim: true,
       validate(value) {
-        if(!validator.isEmail(value)) {
+        if (!validator.isEmail(value)) {
           throw new Error("Invalid email address: " + value);
         }
       }
@@ -28,7 +30,7 @@ const userSchema = new Schema(
       type: String,
       required: true,
       validate(value) {
-        if(!validator.isStrongPassword(value)) {
+        if (!validator.isStrongPassword(value)) {
           throw new Error("Enter a strong password: " + value);
         }
       }
@@ -49,7 +51,7 @@ const userSchema = new Schema(
       type: String,
       default: "https://p.kindpng.com/picc/s/24-248253_user-profile-default-image-png-clipart-png-download.png",
       validate(value) {
-        if(!validator.isURL(value)) {
+        if (!validator.isURL(value)) {
           throw new Error("Invalid url: " + value);
         }
       }
@@ -59,8 +61,8 @@ const userSchema = new Schema(
     },
     skills: {
       type: [String],
-      validate(value){
-        if(value.length > 10) {
+      validate(value) {
+        if (value.length > 10) {
           throw new Error("Skills cannot be more than 10");
         }
       }
@@ -70,6 +72,21 @@ const userSchema = new Schema(
     timestamps: true
   }
 );
+
+userSchema.methods.getJWT = async function () {
+  let user = this;
+  const token = await jwt.sign({ _id: user._id }, "DevTinder@2025", {
+    expiresIn: "7d"
+  });
+  return token;
+}
+
+userSchema.methods.validatePassword = async function(passwordInputByUser) {
+  let user = this;
+  let passwordHash = user.password;
+  let isPasswordValid = await bcrypt.compare(passwordInputByUser, passwordHash);
+  return isPasswordValid;
+}
 
 const User = mongoose.model("User", userSchema);
 
